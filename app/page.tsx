@@ -1,101 +1,101 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [role, setRole] = useState<string>('user');
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Error getting session:", error);
+        router.push('/login'); // Redirect to login if there's an error getting the session
+      } else if (!session) {
+        router.push('/login'); // Redirect to login if no session
+      } else {
+        // Check role and redirect accordingly
+        const { data, error: roleError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (roleError) {
+          console.error("Error fetching role:", roleError);
+        } else if (data) {
+          setRole(data.role);
+          if (data.role === 'admin') {
+            router.push('/admin'); // Redirect to admin page if the role is 'admin'
+          } else {
+            router.push('/user'); // Redirect to user page if the role is 'user'
+          }
+        }
+      }
+    };
+    
+    checkSession();
+  }, [router]);
+
+  const updateRole = async (role: string) => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("Error getting session:", error);
+      return;
+    }
+
+    const user = session?.user; // Get user from session
+
+    if (user) {
+      // Update the role in the users table in Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .upsert(
+          { id: user.id, role }, // Ensure the data structure matches your table
+          { onConflict: 'id' } // Specify the conflict column as 'id', not an array
+        );
+
+      if (error) {
+        console.error("Error updating role:", error);
+      } else {
+        console.log("Role updated to:", role);
+        setRole(role); // Update local role state
+        // Redirect based on the updated role
+        if (role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/user');
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-sm text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">Select Role</h1>
+
+        <button
+          onClick={() => updateRole('user')}
+          className="w-full bg-green-500 text-white py-4 px-6 rounded-lg mb-4 hover:bg-green-600 transition duration-300"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          User
+        </button>
+        
+        <button
+          onClick={() => updateRole('admin')}
+          className="w-full bg-blue-500 text-white py-4 px-6 rounded-lg hover:bg-blue-600 transition duration-300"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Admin
+        </button>
+        
+        <p className="mt-4 text-gray-700">Selected Role: {role}</p>
+      </div>
     </div>
   );
 }
